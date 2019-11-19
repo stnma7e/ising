@@ -17,14 +17,37 @@ type Spin = Float
 data IsingState = IsingState
      { dim :: Int
      , j :: Float
+     , step :: Int
      , model :: Matrix Spin
      , rng :: StdGen
      } deriving (Show)
 
-runMC :: Ising Float
+-- instance Show IsingState where
+--     show (IsingState {d, j, s, m, r}) =
+--         "IsingState { d = " ++ show d
+--             ++ ", j = " ++ show j
+--             ++ ", step = " ++ show step
+--             ++ ", model = " ++ disp 0 m
+--             ++ ", rng = " ++ show r
+--             ++ " }"
+
+runMC :: Ising (Maybe Float)
 runMC = do
+    state <- get
+    put $ state { step = step state + 1}
+    state <- get
     dE <- flipRandSpin >>= getFlipEnergy
-    return dE
+
+    if dE <= 0
+        then return $ Just dE
+    else do
+        r <- randR (0,1)
+        if r <= exp (-beta * dE)
+            then return $ Just dE
+        else do
+            put state              -- reset the state to before the spin flip
+            r <- rand :: Ising Int -- increment RNG
+            return Nothing
 
 getTotalEnergy :: Ising Float
 getTotalEnergy = do
@@ -42,10 +65,10 @@ getNeighbors (row, col) = do
     state <- get
     let n = dim state
     let m = model state
-    let up    = if row <= 0 then [] else [m `atIndex` (row - 1, col)]
-    let down  = if row >= n then [] else [m `atIndex` (row + 1, col)]
-    let left  = if col <= 0 then [] else [m `atIndex` (row, col - 1)]
-    let right = if col >= n then [] else [m `atIndex` (row, col + 1)]
+    let up    = if row <= 0     then [] else [m `atIndex` (row - 1, col)]
+    let down  = if row >= n - 1 then [] else [m `atIndex` (row + 1, col)]
+    let left  = if col <= 0     then [] else [m `atIndex` (row, col - 1)]
+    let right = if col >= n - 1 then [] else [m `atIndex` (row, col + 1)]
     return $ up ++ down ++ left ++ right
 
 flipRandSpin :: Ising (Int, Int)
@@ -69,7 +92,7 @@ newModel :: Int -> Int -> [Int] -> IsingState
 newModel n seed spins =
     let fspins = map fromIntegral spins
         r = mkStdGen seed
-    in IsingState n 2.0 ((n><n) fspins) r
+    in IsingState n 2.0 0 ((n><n) fspins) r
 
 randModel n seed =
     let r = mkStdGen seed
@@ -81,6 +104,8 @@ randModel n seed =
 -- Helper functions
 --
 -----
+
+beta = 1.0
 
 randR :: (Random a) => (a,a) -> Ising a
 randR (a,b) = do 
