@@ -7,7 +7,7 @@ module Lib
 
 import Control.Monad.State
 import System.Random (StdGen, Random, mkStdGen, random, randomR, randomRs)
-import Numeric.LinearAlgebra (Matrix(..), (><), accum, atIndex)
+import Numeric.LinearAlgebra (Matrix(..), (><), accum, atIndex, toLists)
 import Debug.Trace
 
 type Ising = State IsingState
@@ -18,6 +18,7 @@ data IsingState = IsingState
      { dim :: Int
      , j :: Float
      , step :: Int
+     , e :: Float
      , model :: Matrix Spin
      , rng :: StdGen
      } deriving (Show)
@@ -31,28 +32,37 @@ data IsingState = IsingState
 --             ++ ", rng = " ++ show r
 --             ++ " }"
 
-runMC :: Ising (Maybe Float)
+runMC :: Ising Float
 runMC = do
     state <- get
     put $ state { step = step state + 1}
     state <- get
-    dE <- flipRandSpin >>= getFlipEnergy
+    (row, col) <- flipRandSpin
+    state <- get
+    dE <- getFlipEnergy (row, col)
+    state <- get
 
-    if dE <= 0
-        then return $ Just dE
+    if traceShowId dE <= 0 then return () -- accept move <=> do nothing
     else do
         r <- randR (0,1)
-        if r <= exp (-beta * dE)
-            then return $ Just dE
+
+        if r <= exp (-beta * dE) then return () -- accept move <=> do nothing
         else do
             put state              -- reset the state to before the spin flip
             r <- rand :: Ising Int -- increment RNG
-            return Nothing
+            return ()
+
+    e' <- getTotalEnergy
+    put $ state { e = traceShowId e' }
+    return e'
 
 getTotalEnergy :: Ising Float
 getTotalEnergy = do
     state <- get
-    return 0.0
+    let n = dim state
+    neighbors <- mapM getNeighbors [(row, col) | row <- [0..n-1], col <- [0..n-1]]
+    let spins = concat . toLists $ model state
+    return $ sum [sum [si * sj | sj <- si_neighbors] | si <-spins, si_neighbors <- neighbors]
 
 getFlipEnergy :: (Int, Int) -> Ising Float
 getFlipEnergy (row, col) = do
@@ -92,7 +102,7 @@ newModel :: Int -> Int -> [Int] -> IsingState
 newModel n seed spins =
     let fspins = map fromIntegral spins
         r = mkStdGen seed
-    in IsingState n 2.0 0 ((n><n) fspins) r
+    in IsingState n 2.0 0 0.0 ((n><n) fspins) r
 
 randModel n seed =
     let r = mkStdGen seed
