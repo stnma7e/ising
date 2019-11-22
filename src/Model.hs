@@ -37,16 +37,15 @@ showModel m =
         stringRows = map showRow rows
     in foldl (\acc r -> acc ++ "\n" ++ r) "" stringRows
 
-newModel :: Int -> Int -> [Int] -> IsingState
-newModel n seed spins =
+newModel :: Int -> Int -> [Int] -> Float -> IsingState
+newModel seed n spins j =
     let rng = mkStdGen seed
         model = (n><n) $ map fromIntegral spins
         energy = 0.0
-        j = 1.0
     in IsingState n j 0 0 energy model rng
 
-randModel n seed =
+randModel seed n j =
     let r = mkStdGen seed
         spins = take (n*n) $ randomRs (0,1) r :: [Int]
-    in newModel n seed $ [if s == 0 then -1 else s | s <- spins]
+    in newModel seed n [if s == 0 then -1 else s | s <- spins] j
 
