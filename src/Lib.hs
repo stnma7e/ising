@@ -2,6 +2,7 @@ module Lib
 ( Ising
 , randModel
 , runMC
+, getTotalEnergy
 , flipRandSpin
 , flipSpin
 ) where
@@ -13,11 +14,11 @@ import System.Random (Random, random, randomR)
 import Numeric.LinearAlgebra (accum, atIndex, toLists)
 import Debug.Trace
 
-runMC :: Ising ()
-runMC = do
+runMC :: (Ising a) -> a -> Ising a
+runMC property null = do
     incrementStep
     state_i <- get
-    dE <- flipRandSpin >>= getFlipEnergy
+    dE <- flipRandSpin >>= getSpinEnergy >>= (\x -> return $ -x)
     state_f <- get
 
     if dE <= 0
@@ -32,25 +33,24 @@ runMC = do
             r <- rand :: Ising Int -- increment RNG
             return ()
 
-    -- state <- get
-    -- e <- getTotalEnergy
-    -- put $ state { e = e }
-    -- return e
+    state <- get
+    if step state `mod` propFreq state == 0
+        then property
+        else return null
 
 getTotalEnergy :: Ising Float
 getTotalEnergy = do
     state <- get
     let n = dim state
-    neighbors <- mapM getNeighbors [(row, col) | row <- [0..n-1], col <- [0..n-1]]
-    let spins = concat . toLists $ model state
-    return $ sum [sum [si * sj | sj <- si_neighbors] | si <- spins, si_neighbors <- neighbors]
+    let indices = [(row, col) | row <- [0..n-1], col <- [0..n-1]]
+    liftM sum $ mapM getSpinEnergy indices
 
-getFlipEnergy :: (Int, Int) -> Ising Float
-getFlipEnergy (row, col) = do
+getSpinEnergy :: (Int, Int) -> Ising Float
+getSpinEnergy (row, col) = do
     state <- get
     neighbors <- getNeighbors (row, col)
     let spin = model state `atIndex` (row,col)
-    return $ 2 * j state * (-spin) * (sum neighbors)
+    return $ 2 * j state * spin * (sum neighbors)
 
 getNeighbors :: (Int, Int) -> Ising [Spin]
 getNeighbors (row, col) = do

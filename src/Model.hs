@@ -14,6 +14,7 @@ data IsingState = IsingState
      , step :: Int
      , nAccept :: Int
      , e :: Float
+     , propFreq :: Int
      , model :: Model
      , rng :: StdGen
      }
@@ -42,10 +43,12 @@ newModel seed n spins j =
     let rng = mkStdGen seed
         model = (n><n) $ map fromIntegral spins
         energy = 0.0
-    in IsingState n j 0 0 energy model rng
+    in IsingState n j 0 0 energy 100 model rng
 
 randModel seed n j =
     let r = mkStdGen seed
         spins = take (n*n) $ randomRs (0,1) r :: [Int]
     in newModel seed n [if s == 0 then -1 else s | s <- spins] j
 
+setPropertyFreq :: Int -> IsingState -> IsingState
+setPropertyFreq f model = model { propFreq = f }
