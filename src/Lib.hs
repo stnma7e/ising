@@ -1,6 +1,7 @@
 module Lib
 ( Ising
 , randModel
+, runBatch
 , runMC
 , getTotalEnergy
 , flipRandSpin
@@ -9,13 +10,21 @@ module Lib
 
 import Model
 
+import Data.Maybe
 import Control.Monad.State
 import System.Random (Random, random, randomR)
 import Numeric.LinearAlgebra (accum, atIndex, toLists)
-import Debug.Trace
 
-runMC :: (Ising a) -> a -> Ising a
-runMC property null = do
+runBatch :: Fractional a => Int -> Ising a -> Ising (a, IsingState)
+runBatch steps prop = do
+    maybeProps <- replicateM steps $ runMC prop
+    let properties = map fromJust $ filter isJust maybeProps
+    let avgP = (sum properties) / fromIntegral (length properties)
+    state <- get
+    return (avgP, state)
+
+runMC :: (Ising a) -> Ising (Maybe a)
+runMC property = do
     incrementStep
     state_i <- get
     dE <- flipRandSpin >>= getSpinEnergy >>= (\x -> return $ -x)
@@ -35,8 +44,8 @@ runMC property null = do
 
     state <- get
     if step state `mod` propFreq state == 0
-        then property
-        else return null
+        then liftM Just property
+        else return Nothing
 
 getTotalEnergy :: Ising Float
 getTotalEnergy = do

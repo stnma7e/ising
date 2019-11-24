@@ -13,7 +13,6 @@ data IsingState = IsingState
      , j :: Float
      , step :: Int
      , nAccept :: Int
-     , e :: Float
      , propFreq :: Int
      , model :: Model
      , rng :: StdGen
@@ -24,7 +23,6 @@ instance Show IsingState where
         "IsingState { d = " ++ show (dim state)
             ++ ", j = " ++ show (j state)
             ++ ", step = " ++ show (step state)
-            ++ ", energy = " ++ show (e state)
             ++ ", accept = " ++ show (nAccept state)
             ++ ", rng = " ++ show (rng state)
             ++ " }"
@@ -38,17 +36,27 @@ showModel m =
         stringRows = map showRow rows
     in foldl (\acc r -> acc ++ "\n" ++ r) "" stringRows
 
-newModel :: Int -> Int -> [Int] -> Float -> IsingState
-newModel seed n spins j =
+newModel :: Int -> Int -> Float -> [Int] -> IsingState
+newModel seed n j spins =
     let rng = mkStdGen seed
         model = (n><n) $ map fromIntegral spins
-        energy = 0.0
-    in IsingState n j 0 0 energy 100 model rng
+    in IsingState
+        { dim = n
+        , j = j
+        , step = 0
+        , nAccept = 0
+        , propFreq = 1000
+        , model = model
+        , rng = rng
+        }
 
 randModel seed n j =
     let r = mkStdGen seed
         spins = take (n*n) $ randomRs (0,1) r :: [Int]
-    in newModel seed n [if s == 0 then -1 else s | s <- spins] j
+    in newModel seed n j [if s == 0 then -1 else s | s <- spins]
+
+upSpins   n = [ 1 | _ <- [1..n*n]]
+downSpins n = [-1 | _ <- [1..n*n]]
 
 setPropertyFreq :: Int -> IsingState -> IsingState
 setPropertyFreq f model = model { propFreq = f }

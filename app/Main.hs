@@ -3,26 +3,33 @@ module Main where
 import Lib
 import Model
 
-import Data.Maybe
 import Control.Monad.State
 import System.Random
 
 main :: IO ()
 main = do
-    let total = 1000000
-    let snaps = 10
-    let n = total `div` snaps
+    let nStep = 9000000
+    let snaps = 4
+    let stepsPerFrame = nStep `div` snaps
+
     seed <- randomIO :: IO Int
     print seed
-    let model = setPropertyFreq 1000 $ randModel seed 20 2.5
-    model' <- foldl (\acc _ -> acc >>= runBatch n) (runBatch n model) [1..snaps]
-    return ()
 
-runBatch :: Int -> IsingState -> IO IsingState
-runBatch n model = do
-    let (x, model') = runState (replicateM n $ runMC (liftM Just getTotalEnergy) Nothing) model
-    let energies = map fromJust $ filter isJust x
+    let n = 60
+    let j = 0.5
+
+    let model = newModel seed n j $ downSpins n
+    let model = randModel seed n j
+    let model = newModel seed n j $ upSpins n
+    print model
+
+    let prop = getTotalEnergy
+    let prop = return 0.0
+
+    let (frames, model') = runState (replicateM snaps $ runBatch stepsPerFrame prop) model
+    let energies = map fst frames
     let avgE = (sum energies) / fromIntegral (length energies)
-    print avgE
-    print $ model'
-    return model'
+    putStrLn $ showFrames frames
+    putStrLn $ "Average E: " ++ show avgE
+
+showFrames = foldl (\acc (prop, state) -> acc ++ show prop ++ "\n" ++ show state ++ "\n") ""
