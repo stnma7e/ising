@@ -1,6 +1,7 @@
 module Model where
 
-import Control.Monad.State
+import Control.Monad.State.Strict
+--import Control.Monad.State
 import System.Random (StdGen, mkStdGen, randomRs)
 import Numeric.LinearAlgebra (Matrix(..), (><), toLists)
 
