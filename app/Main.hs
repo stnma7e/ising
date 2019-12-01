@@ -8,15 +8,24 @@ import Control.Monad.State.Strict
 import System.Random
 import Debug.Trace
 
+data UpDown = Up | Down | Random
+            deriving (Show)
+newtype J = J Double
+          deriving (Show)
+newtype H = H Double 
+          deriving (Show)
+data System = System J UpDown H
+            deriving (Show)
+
 main :: IO ()
 main = do
-    let temps =  [0.5 | _ <- [1..10]] --[0.4017 + i * 0.0001 | i <- [1 .. 500]]
-    results <- mapM run temps
-    mapM print $ zip temps $ map snd results
+    let sys =  [System (J 0.5) upDown (H h) | upDown <- [Up, Down], h <- [0.25, 0.5, 1.0], _ <- [1..5]]
+    results <- mapM run sys
+    mapM print $ zip sys $ map snd results
     return ()
 
-run :: Double -> IO ([IsingState], [Double])
-run j = do
+run :: System -> IO ([IsingState], [Double])
+run (System (J j) upDown (H h)) = do
     let n = 40
     let nStep = 4000000
     let snaps = 4
@@ -26,9 +35,10 @@ run j = do
     seed <- randomIO :: IO Int
     --print seed
 
-    let model = newModel seed n j $ downSpins n
-    let model = newModel seed n j $ upSpins n
-    let model = randModel seed n j
+    let model = case upDown of
+                    Up     -> newModel seed n j $ downSpins n
+                    Down   -> newModel seed n j $ upSpins n
+                    Random -> randModel seed n j
     --print model
 
     let prop = [ return 0.0 ] :: [Ising Double]
@@ -38,7 +48,7 @@ run j = do
                , totalMagnetization >>= square
                ]
 
-    let (eqFrames, eqModel) = runState (runBatch nEq [return ()]) model
+    let (eqFrames, eqModel) = runState (runBatch nEq [return ()]) $ setH h model
 
     let (frames, model') = runState (replicateM snaps $ runBatch stepsPerFrame prop) eqModel
     let props = map fst frames
