@@ -10,23 +10,28 @@ import Debug.Trace
 
 main :: IO ()
 main = do
+    let temps =  [0.5 | _ <- [1..10]] --[0.4017 + i * 0.0001 | i <- [1 .. 500]]
+    results <- mapM run temps
+    mapM print $ zip temps $ map snd results
+    return ()
+
+run :: Double -> IO ([IsingState], [Double])
+run j = do
+    let n = 40
     let nStep = 4000000
     let snaps = 4
     let nEq   = 1000000
     let stepsPerFrame = nStep `div` snaps
 
     seed <- randomIO :: IO Int
-    print seed
-
-    let n = 40
-    let j = 0.4
+    --print seed
 
     let model = newModel seed n j $ downSpins n
     let model = newModel seed n j $ upSpins n
     let model = randModel seed n j
-    print model
+    --print model
 
-    let prop = [ return 0.0 ] :: [Ising Float]
+    let prop = [ return 0.0 ] :: [Ising Double]
     let prop = [ totalEnergy
                , totalEnergy >>= square
                , totalMagnetization
@@ -38,9 +43,10 @@ main = do
     let (frames, model') = runState (replicateM snaps $ runBatch stepsPerFrame prop) eqModel
     let props = map fst frames
     let states = map snd frames
-    mapM print states
-    print $ computeAverage $ concat props
-    return ()
+    let avgs = computeAverage $ concat props
+    --mapM print states
+    --print avgs
+    return (states, avgs)
 
 computeAverage :: Fractional a => [Maybe [a]] -> [a]
 computeAverage props =

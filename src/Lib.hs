@@ -15,7 +15,6 @@ import Data.Maybe
 import Control.Monad.State
 import System.Random (Random, random, randomR)
 import Numeric.LinearAlgebra (accum, atIndex, toLists)
-import Debug.Trace
 
 runBatch :: Show a => Int -> [Ising a] -> Ising ([Maybe [a]], IsingState)
 runBatch steps prop = do
@@ -47,19 +46,21 @@ runMC properties = do
         then liftM Just $ sequence properties
         else return Nothing
 
-totalEnergy :: Ising Float
+totalEnergy :: Ising Double
 totalEnergy = do
     state <- get
     let n = dim state
     let indices = [(row, col) | row <- [0..n-1], col <- [0..n-1]]
-    liftM sum $ mapM getSpinEnergy indices
+    spinE <- liftM sum $ mapM getSpinEnergy indices
+    let fieldE = sum $ map (* h state) (spins state)
+    normalize $ spinE - fieldE
 
-totalMagnetization :: Ising Float
+totalMagnetization :: Ising Double
 totalMagnetization = do
         state <- get
-        return $ sum . concat . toLists $ model state
+        normalize $ sum (spins state)
 
-getSpinEnergy :: (Int, Int) -> Ising Float
+getSpinEnergy :: (Int, Int) -> Ising Double
 getSpinEnergy (row, col) = do
     state <- get
     neighbors <- getNeighbors (row, col)
@@ -76,8 +77,7 @@ getNeighbors (row, col) = do
                              , (row, (col - 1) `mod` n)
                              , (row, (col + 1) `mod` n)
                              ]
-    return ns
-
+    return ns 
 flipRandSpin :: Ising (Int, Int)
 flipRandSpin = do
     state <- get
@@ -101,6 +101,14 @@ flipSpin (row, col) = do
 -----
 
 beta = 1.0
+
+normalize :: Fractional a => a -> Ising a
+normalize x = do
+    state <- get
+    return $ x / (fromIntegral $ dim state)^2
+
+spins :: IsingState -> [Spin]
+spins state = concat . toLists $ model state
 
 randR :: (Random a) => (a,a) -> Ising a
 randR (a,b) = do 

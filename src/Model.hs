@@ -6,12 +6,13 @@ import System.Random (StdGen, mkStdGen, randomRs)
 import Numeric.LinearAlgebra (Matrix(..), (><), toLists)
 
 type Ising = State IsingState
-type Spin = Float
+type Spin = Double
 type Model = Matrix Spin
 
 data IsingState = IsingState
      { dim :: Int
-     , j :: Float
+     , j :: Double
+     , h :: Double
      , step :: Int
      , nAccept :: Int
      , propFreq :: Int
@@ -37,13 +38,14 @@ showModel m =
         stringRows = map showRow rows
     in foldl (\acc r -> acc ++ "\n" ++ r) "" stringRows
 
-newModel :: Int -> Int -> Float -> [Int] -> IsingState
+newModel :: Int -> Int -> Double -> [Int] -> IsingState
 newModel seed n j spins =
     let rng = mkStdGen seed
         model = (n><n) $ map fromIntegral spins
     in IsingState
         { dim = n
         , j = j
+        , h = 0.0
         , step = 0
         , nAccept = 0
         , propFreq = 1000
@@ -61,3 +63,6 @@ downSpins n = [-1 | _ <- [1..n*n]]
 
 setPropertyFreq :: Int -> IsingState -> IsingState
 setPropertyFreq f model = model { propFreq = f }
+
+setH :: Double -> IsingState -> IsingState
+setH h model = model { h = h }
