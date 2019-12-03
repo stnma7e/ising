@@ -12,14 +12,19 @@ data UpDown = Up | Down | Random
             deriving (Show)
 newtype J = J Double
           deriving (Show)
-newtype H = H Double 
+newtype H = H Double
           deriving (Show)
 data System = System J UpDown H
             deriving (Show)
 
 main :: IO ()
 main = do
-    let sys =  [System (J 0.5) upDown (H h) | upDown <- [Up, Down], h <- [0.25, 0.5, 1.0], _ <- [1..5]]
+    let sys =  [ System (J j) upDown (H h)
+                   | j <- [0.49,0.51,0.54,0.56]
+                   , h <- [0.0]
+                   , upDown <- [Random]
+                   , _ <- [1 .. 5]
+               ]
     results <- mapM run sys
     mapM print $ zip sys $ map snd results
     return ()
@@ -35,7 +40,7 @@ run (System (J j) upDown (H h)) = do
     seed <- randomIO :: IO Int
     --print seed
 
-    let model = case upDown of
+    let model = setH h $ case upDown of
                     Up     -> newModel seed n j $ downSpins n
                     Down   -> newModel seed n j $ upSpins n
                     Random -> randModel seed n j
@@ -48,9 +53,10 @@ run (System (J j) upDown (H h)) = do
                , totalMagnetization >>= square
                ]
 
-    let (eqFrames, eqModel) = runState (runBatch nEq [return ()]) $ setH h model
+    let (eqFrames, eqModel) = runState (runBatch nEq [return ()]) model
 
-    let (frames, model') = runState (replicateM snaps $ runBatch stepsPerFrame prop) eqModel
+    let simulation = replicateM snaps $ runBatch stepsPerFrame prop
+    let (frames, model') = runState simulation eqModel
     let props = map fst frames
     let states = map snd frames
     let avgs = computeAverage $ concat props

@@ -26,7 +26,7 @@ runMC :: [Ising a] -> Ising (Maybe [a])
 runMC properties = do
     incrementStep
     state_i <- get
-    dE <- flipRandSpin >>= getSpinEnergy >>= (\x -> return $ -x)
+    dE <- flipRandSpin >>= getSpinEnergy >>= return . negate
     state_f <- get
 
     if dE <= 0
